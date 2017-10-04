@@ -6,14 +6,14 @@ rel: compile
 	./relx tar
 
 compile: deps
-	./rebar compile
+	mix compile
 
 clean:
-	./rebar clean
+	mix clean
 	rm -rf test/*.beam
 
 deps:
-	./rebar get-deps
+	mix deps.get
 
 deps := $(wildcard deps/*/ebin)
 
