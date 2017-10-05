@@ -3,7 +3,7 @@ defmodule AMOC.Mixfile do
 
   def project do
     [app: :amoc,
-     version: "1.0.0",
+     version: "0.9.0",
      elixir: "~> 1.4",
      start_permanent: Mix.env == :prod,
      erlc_options: erlc_options(Mix.env),
@@ -30,11 +30,28 @@ defmodule AMOC.Mixfile do
   #
   # Type "mix help compile.app" for more information
   def application do
-    [description: 'A Murder Of Crows XMPP load tester for Wocky']
+    [description: 'A Murder Of Crows XMPP load tester for Wocky',
+     extra_applications: [:wocky, :jiffy],
+     mod: {:amoc_app, []},
+
+     env: [repeat_interval: 60000,
+           interarrival: 30,
+           exometer_predefined: [
+             {[:amoc, :users],
+               {:function, :ets, :info, [:amoc_users], :proplist, [:size]},
+               []},
+             {[:amoc, :times, :connection], :histogram, []},
+             {[:amoc, :counters, :connections], :spiral, []},
+             {[:amoc, :counters, :connection_failures], :spiral, []}
+           ]
+     ]
+     ]
   end
 
   defp deps do
     [
+      {:distillery, "~> 1.1", runtime: false},
+
       {:lager,
         github: "basho/lager",
         tag: "3.2.1",
@@ -43,7 +60,7 @@ defmodule AMOC.Mixfile do
       {:jiffy,
         github: "davisp/jiffy",
         tag: "0.14.7",
-        manager: :rebar3,
+        manager: :rebar,
         override: true},
       {:trails,
         github: "inaka/cowboy-trails",
@@ -77,7 +94,9 @@ defmodule AMOC.Mixfile do
         github: "bjnortier/mochijson2",
         branch: "master",
         manager: :rebar3,
-        override: true},
+        override: true,
+        runtime: false
+      },
       {:proper,
         github: "manopapad/proper",
         branch: "master",
@@ -99,7 +118,9 @@ defmodule AMOC.Mixfile do
         override: true},
       {:wocky_app,
         git: "git@github.com:hippware/wocky.git",
-        branch: "master"},
+        branch: "master",
+        runtime: false
+      },
 
 
       # Overrides to get us compiling with wocky
