@@ -7,6 +7,7 @@ defmodule AMOC.Mixfile do
      elixir: "~> 1.4",
      start_permanent: Mix.env == :prod,
      erlc_options: erlc_options(Mix.env),
+     erlc_paths: ["src", "scenarios", "deps/wocky_app/apps/wocky_xmpp/test"],
      aliases: aliases(),
      deps: deps(),
      elvis_config: elvis_config()
@@ -21,8 +22,9 @@ defmodule AMOC.Mixfile do
       :warn_export_vars,
       :warn_obsolete_guard,
       :warn_unused_import,
+      {:i, "deps/wocky_app/apps/wocky_xmpp/include"},
       {:warn_format, 1},
-      {:parse_transform, :lager_transform}
+      {:parse_transform, :lager_transform},
     ]
   end
 
@@ -118,7 +120,7 @@ defmodule AMOC.Mixfile do
         override: true},
       {:wocky_app,
         git: "git@github.com:hippware/wocky.git",
-        branch: "master",
+        branch: "amoc-additions",
         runtime: false
       },
 
