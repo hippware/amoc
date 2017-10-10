@@ -3,7 +3,7 @@
 -include("../deps/wocky_app/apps/wocky_xmpp/include/wocky.hrl").
 
 -export([server/0,
-         create_user/0,
+         create_user/1,
          make_cfg/1,
          rest/0,
          load_hs/2,
@@ -17,16 +17,22 @@ server() ->
 
 password() -> <<"abc">>.
 
--spec create_user() -> escalus_users:user_spec().
-create_user() ->
-    ?wocky_factory:insert(user, [{password, password()}]).
+-spec create_user(non_neg_integer()) -> escalus_users:user_spec().
+create_user(ID) ->
+    ?wocky_factory:insert(user, [{password, password()},
+                                 {handle, handle(ID)}]).
+
+handle(ID) ->
+    <<"User", (integer_to_binary(ID))/binary>>.
 
 -spec make_cfg(?wocky_user:t()) -> proplists:proplist().
 make_cfg(#{id := ID}) ->
     [
      {username, ID},
      {server, server()},
-     {host, <<"127.0.0.1">>},
+     {host, server()},
+     {port, 5223},
+     {ssl, true},
      {password, password()},
      {carbons, false},
      {stream_management, true},

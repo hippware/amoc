@@ -29,8 +29,8 @@ setup_db(Count) ->
     ?wocky_repo:transaction( fun() ->
     CreatorUsers =
     lists:map(
-      fun(_) ->
-              setup_creator()
+      fun(I) ->
+              setup_creator(I)
       end,
       lists:seq(1, Count div ?CREATOR_RATIO)),
 
@@ -38,11 +38,11 @@ setup_db(Count) ->
     lists:append(lists:duplicate(?CREATOR_RATIO - 1, CreatorUsers)),
 
     lager:info("Creating users"),
-    lists:map(
-      fun(Creator) ->
-              setup_user(Creator)
+    lists:mapfoldl(
+      fun(Creator, ID) ->
+              {setup_user(ID, Creator), ID+1}
       end,
-      CreatorsForUsers)
+      length(CreatorUsers)+1, CreatorsForUsers)
                              end, ?DB_OPTS),
     lager:info("Done").
 
@@ -91,8 +91,8 @@ send_presence_unavailable(Client) ->
     Pres = escalus_stanza:presence(<<"unavailable">>),
     escalus_connection:send(Client, Pres).
 
-setup_creator() ->
-    User = load_util:create_user(),
+setup_creator(ID) ->
+    User = load_util:create_user(ID),
     Bots = ?wocky_factory:insert_list(
               ?CREATOR_BOTS, bot, [{user, User}]),
     lists:foreach(
@@ -103,8 +103,8 @@ setup_creator() ->
     ?wocky_factory:insert_list(?HS_ITEMS, home_stream_item, [{user, User}]),
     User.
 
-setup_user(Creator) ->
-    User = load_util:create_user(),
+setup_user(ID, Creator) ->
+    User = load_util:create_user(ID),
     Bots = ?wocky_user:get_owned_bots(Creator),
     lists:foreach(
       fun(Bot) ->

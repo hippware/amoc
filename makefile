@@ -2,6 +2,9 @@
 
 all: rel deploy
 
+console:
+	MIX_ENV=prod iex -S mix
+
 rel: compile
 	./relx tar
 
@@ -10,7 +13,6 @@ compile: deps
 
 clean:
 	mix clean
-	rm -rf test/*.beam
 
 deps:
 	mix deps.get
@@ -39,9 +41,6 @@ eunit:
 		else ./rebar skip_deps=true eunit; fi
 
 test: compile eunit ct prop
-
-console:
-	erl -pa ebin/ -pa deps/*/ebin
 
 dialyzer/erlang.plt:
 	@mkdir -p dialyzer
