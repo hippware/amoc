@@ -27,12 +27,14 @@ handle(ID) ->
 
 -spec make_cfg(?wocky_user:t()) -> proplists:proplist().
 make_cfg(#{id := ID}) ->
+    Port = list_to_integer(os:getenv("WOCKY_PORT", "5223")),
+    SSL = os:getenv("WOCKY_SSL", "true") =:= "true",
     [
      {username, ID},
      {server, server()},
      {host, server()},
-     {port, 5223},
-     {ssl, true},
+     {port, Port},
+     {ssl, SSL},
      {password, password()},
      {carbons, false},
      {stream_management, true},
@@ -42,8 +44,10 @@ make_cfg(#{id := ID}) ->
 rest() ->
     timer:sleep(rand:uniform(timer:seconds(2))).
 
-load_hs(_Client, _Count) ->
-    ok.
+load_hs(Client, Count) ->
+    test_helper:expect_iq_success_u(
+      test_helper:get_hs_stanza(#rsm_in{direction = before, max = Count}),
+      Client, Client).
 
 load_subscribed_bots(Client) ->
     S = bot_SUITE:subscribed_stanza(#rsm_in{max = 50}),
