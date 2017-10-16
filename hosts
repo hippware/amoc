@@ -38,10 +38,10 @@ node_name_type=name
 graphite_ip="10.1.113.62"
 
 ;; graphite port used for annotations
-graphite_http_port="31536"
+graphite_http_port=31536
 
 ;; graphite port used for stats delivery
-graphite_stats_port="30338"
+graphite_stats_port=30338
 
 ;; where to install the amoc release on the master node
 ;; make it distinct from slave_install_dir if you want to run master

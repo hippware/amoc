@@ -6,10 +6,12 @@
          create_user/1,
          make_cfg/1,
          rest/0,
+         rest/1,
          load_hs/2,
          load_subscribed_bots/1,
          load_bot/2,
-         load_items/2
+         load_items/2,
+         time/2
         ]).
 
 server() ->
@@ -41,8 +43,9 @@ make_cfg(#{id := ID}) ->
      {resource, ?wocky_id:new()}
     ].
 
-rest() ->
-    timer:sleep(rand:uniform(timer:seconds(2))).
+rest() -> rest(2).
+rest(Seconds) ->
+    timer:sleep(rand:uniform(timer:seconds(Seconds))).
 
 load_hs(Client, Count) ->
     test_helper:expect_iq_success_u(
@@ -66,3 +69,8 @@ load_items(Client, BotID) ->
     test_helper:expect_iq_success(
       test_helper:iq_get(
         ?NS_BOT, bot_SUITE:item_query_el(#rsm_in{max = 20}, BotID)), Client).
+
+time(Metric, Fun) ->
+    {Time, Result} = timer:tc(Fun),
+    amoc_metrics:update_hist(Metric, Time),
+    Result.

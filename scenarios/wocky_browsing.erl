@@ -4,6 +4,7 @@
 -include("../deps/wocky_app/apps/wocky_xmpp/test/test_helper.hrl").
 
 -export([setup_db/1, init/0, start/1]).
+-import(load_util, [time/2]).
 
 -compile({parse_transform, cut}).
 
@@ -48,38 +49,70 @@ setup_db(Count) ->
 
 
 -spec init() -> ok.
-init() -> ok.
+init() ->
+    amoc_metrics:new_counter(wocky_browsing_runs),
+    amoc_metrics:new_counter(wocky_browsing_errors),
+
+    Histograms  =
+        [wocky_browsing_connect_time, wocky_browsing_presence_time,
+         wocky_browsing_hs_load_time, wocky_browsing_sub_bot_time,
+         wocky_browsing_bot_time, wocky_browsing_bot_items_time],
+
+    lists:foreach(amoc_metrics:new_histogram(_), Histograms),
+    ok.
 
 -spec start(amoc_scenario:user_id()) -> any().
 start(MyID) ->
-    lager:info("Starting browsing test"),
-    User = ?load_helper:get_user(MyID),
-    Cfg = load_util:make_cfg(User),
-    {ok, Conn, Props, _} = escalus_connection:start(Cfg),
+    try
+        load_util:rest(10),
+        lager:info("Starting browsing test"),
+        User = ?load_helper:get_user(MyID),
+        Cfg = load_util:make_cfg(User),
+        {ok, Conn, Props, _} =
+            time(wocky_browsing_connect_time,
+                 fun() -> escalus_connection:start(Cfg) end),
 
-    lager:info("Conn: ~p", [Conn]),
-    Jid = make_jid(Props),
-    Client = Conn#client{jid = Jid},
-    lager:info("client: ~p", [Client]),
+        lager:info("Conn: ~p", [Conn]),
+        Jid = make_jid(Props),
+        Client = Conn#client{jid = Jid},
 
-    send_presence_available(Client),
-    lager:info("presence resp ~p", [escalus_client:wait_for_stanza(Client)]),
+        time(wocky_browsing_presence_time,
+             fun() ->
+                     send_presence_available(Client),
+                     lager:info("presence resp ~p",
+                                [escalus_client:wait_for_stanza(Client)])
+             end),
 
-    load_util:load_hs(Client, 50),
-    load_util:rest(),
-    [Bot | _Bots] = load_util:load_subscribed_bots(Client),
-    load_util:rest(),
-    lager:info("Loading bot and items"),
-    load_util:load_bot(Client, Bot),
-    lager:info("Bot loaded"),
-    load_util:load_items(Client, Bot),
-    lager:info("Items loaded"),
-    load_util:rest(),
+        time(wocky_browsing_hs_load_time,
+             fun() -> load_util:load_hs(Client, 50) end),
 
-    lager:info("Sending unavailable"),
-    send_presence_unavailable(Client),
-    lager:info("Disconnecting clinet"),
-    escalus_connection:stop(Client).
+        load_util:rest(),
+        [Bot | _Bots] =
+            time(wocky_browsing_sub_bot_time,
+                 fun() -> load_util:load_subscribed_bots(Client) end),
+
+        load_util:rest(),
+        lager:info("Loading bot and items"),
+        time(wocky_browsing_bot_time,
+             fun() -> load_util:load_bot(Client, Bot) end),
+        lager:info("Bot loaded"),
+
+        time(wocky_browsing_bot_items_time,
+             fun() -> load_util:load_items(Client, Bot) end),
+        lager:info("Items loaded"),
+        load_util:rest(),
+
+        lager:info("Sending unavailable"),
+        send_presence_unavailable(Client),
+        lager:info("Disconnecting clinet"),
+        escalus_connection:stop(Client),
+        amoc_metrics:update_counter(wocky_browsing_runs, 1)
+    catch
+        A:B ->
+            lager:info("Scenario failed with: ~p:~p - ~p",
+                       [A, B, erlang:get_stacktrace()]),
+            amoc_metrics:update_counter(wocky_browsing_errors, 1)
+    end.
 
 -spec send_presence_available(escalus:client()) -> ok.
 send_presence_available(Client) ->

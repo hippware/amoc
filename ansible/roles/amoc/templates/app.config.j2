@@ -20,7 +20,7 @@
 	    [{exometer_report_graphite, [
 		    {prefix, "{{ graphite_prefix }}"},
 		    {host, "{{ graphite_ip }}"},
-            {port, "{{ graphite_stats_port }}"},
+            {port, {{ graphite_stats_port }}},
 		    {api_key, ""}
 		    ]}]},
     {subscribers, [
