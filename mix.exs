@@ -7,7 +7,10 @@ defmodule AMOC.Mixfile do
      elixir: "~> 1.4",
      start_permanent: Mix.env == :prod,
      erlc_options: erlc_options(Mix.env),
-     erlc_paths: ["src", "scenarios", "deps/wocky_app/apps/wocky_xmpp/test"],
+     erlc_paths: ["src", "scenarios",
+                  "deps/wocky_app/apps/wocky_xmpp/test",
+                  "deps/wocky_app/apps/wocky_xmpp/src"
+                 ],
      aliases: aliases(),
      deps: deps(),
      elvis_config: elvis_config()
@@ -23,6 +26,7 @@ defmodule AMOC.Mixfile do
       :warn_obsolete_guard,
       :warn_unused_import,
       {:i, "deps/wocky_app/apps/wocky_xmpp/include"},
+      {:i, "deps/ejabberd/ext/MongooseIM/apps/ejabberd/include"},
       {:warn_format, 1},
       {:parse_transform, :lager_transform},
     ]
@@ -33,7 +37,7 @@ defmodule AMOC.Mixfile do
   # Type "mix help compile.app" for more information
   def application do
     [description: 'A Murder Of Crows XMPP load tester for Wocky',
-     extra_applications: [:wocky, :jiffy],
+     extra_applications: [:wocky],
      mod: {:amoc_app, []},
 
      env: [repeat_interval: 60000,
@@ -52,7 +56,7 @@ defmodule AMOC.Mixfile do
 
   defp deps do
     [
-      {:distillery, "~> 1.1", runtime: false},
+      {:distillery, "~> 1.5", runtime: false},
 
       {:lager,
         github: "basho/lager",
@@ -97,8 +101,7 @@ defmodule AMOC.Mixfile do
         branch: "master",
         manager: :rebar3,
         override: true,
-        runtime: false
-      },
+        runtime: false},
       {:proper,
         github: "manopapad/proper",
         branch: "master",

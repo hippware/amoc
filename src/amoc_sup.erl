@@ -38,8 +38,8 @@ init([]) ->
             ?CHILD(amoc_event, worker),
             ?CHILD(amoc_users_sup, supervisor),
             ?CHILD(amoc_controller, worker),
-            ?CHILD(amoc_slave, worker),
-            ?CHILD(amoc_registry, worker)
+            ?CHILD(amoc_slave, worker)
+%            ?CHILD(amoc_registry, worker)
            ]} }.
 
 -spec start_users_ets() -> ets:tid() | atom().

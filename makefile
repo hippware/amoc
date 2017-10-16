@@ -6,7 +6,7 @@ console:
 	MIX_ENV=prod iex -S mix
 
 rel: compile
-	./relx tar
+	mix release
 
 compile: deps
 	mix compile
@@ -19,7 +19,7 @@ deps:
 
 deps := $(wildcard deps/*/ebin)
 
-deploy: rel
+deploy:
 	ansible-playbook -i hosts ansible/amoc-master.yml;
 	ansible-playbook -i hosts ansible/amoc-slaves.yml
 

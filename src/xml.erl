@@ -1,0 +1,1 @@
+../deps/ejabberd/ext/MongooseIM/apps/ejabberd/src/xml.erl

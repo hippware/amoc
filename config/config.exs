@@ -77,4 +77,16 @@ config :pushex,
     ]
   ]
 
+config :distillery,
+  no_warn_missing: [
+    :elixir_make,
+    :hamcrest,
+    :mochijson2,
+    :parse_trans,
+    :plug,
+    :wocky_app,
+    :wsock
+  ]
+
+
 import_config "#{Mix.env}.exs"

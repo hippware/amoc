@@ -37,6 +37,7 @@ environment :prod do
   set include_erts: true
   set include_src: false
   set cookie: :"u]Md}wJr=6~<lUaNCiz7hG@Gc$a*Sw>n2D4!}klTDIxx5cH^cY[4IbJ=f{^6f8$Z"
+  set included_configs: ["releases/0.9.0/amoc_dist.config"]
 end
 
 # You may define one or more releases in this file.
@@ -47,7 +48,7 @@ end
 release :amoc do
   set version: current_version(:amoc)
   set applications: [
-    :runtime_tools
+    :runtime_tools,
+    :common_test
   ]
 end
-

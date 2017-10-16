@@ -4,13 +4,14 @@
 ;; if you want to alter one of the values from [amoc:vars] (like ssh_pass) for a given host you can do it here
 
 [amoc-master]
-localhost graphite_prefix=amoc_master node_name="amoc_master@192.168.0.1"
+10.0.0.46 graphite_prefix=amoc_master node_name="amoc_master@10.0.0.46"
 
 [amoc-slave]
-host1 graphite_prefix=amoc_1 node_name="amoc@192.168.0.2"
-host2 graphite_prefix=amoc_2 node_name="amoc@192.168.0.3"
-host3 graphite_prefix=amoc_3 node_name="amoc@192.168.0.4"
-host4 graphite_prefix=amoc_4 node_name="amoc@192.168.0.5"
+10.0.0.77 graphite_prefix=amoc_1 node_name="amoc@10.0.0.77"
+10.0.0.199 graphite_prefix=amoc_2 node_name="amoc@10.0.0.199"
+;; host2 graphite_prefix=amoc_2 node_name="amoc@192.168.0.3"
+;; host3 graphite_prefix=amoc_3 node_name="amoc@192.168.0.4"
+;; host4 graphite_prefix=amoc_4 node_name="amoc@192.168.0.5"
 
 ;; group all amoc nodes
 
@@ -22,7 +23,7 @@ amoc-slave
 
 [amoc:vars]
 ;; ssh user
-user=vagrant
+user=ubuntu
 
 ;; ssh password if it is required (no public key auth)
 ;ansible_ssh_pass=root
@@ -34,10 +35,13 @@ node_name_type=name
 ;ansible_sudo=false
 
 ;; graphite ip address
-graphite_ip="172.17.0.38"
+graphite_ip="10.1.113.62"
 
 ;; graphite port used for annotations
-graphite_http_port="80"
+graphite_http_port="31536"
+
+;; graphite port used for stats delivery
+graphite_stats_port="30338"
 
 ;; where to install the amoc release on the master node
 ;; make it distinct from slave_install_dir if you want to run master
