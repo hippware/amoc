@@ -14,10 +14,7 @@
 -define(BOT_ITEMS, 20).
 -define(HS_ITEMS, 50).
 
--define(task, 'Elixir.Task').
 -define(load_helper, 'Elixir.AMOC.LoadHelper').
-
--define(TABLE, wocky_browsing_users).
 
 -define(DB_OPTS, [{timeout, infinity}, {pool_timeout, infinity}]).
 
@@ -67,13 +64,8 @@ start(MyID) ->
         lager:info("Starting browsing test"),
         User = ?load_helper:get_user(MyID),
         Cfg = load_util:make_cfg(User),
-        {ok, Conn, Props, _} =
-            time(wocky_browsing_connect_time,
-                 fun() -> escalus_connection:start(Cfg) end),
-
-        lager:info("Conn: ~p", [Conn]),
-        Jid = make_jid(Props),
-        Client = Conn#client{jid = Jid},
+        Client = time(wocky_browsing_connect_time,
+                      fun() -> load_util:connect(Cfg) end),
 
         time(wocky_browsing_presence_time,
              fun() ->

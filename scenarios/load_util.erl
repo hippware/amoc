@@ -1,10 +1,12 @@
 -module(load_util).
 
 -include("../deps/wocky_app/apps/wocky_xmpp/include/wocky.hrl").
+-include("../deps/wocky_app/apps/wocky_xmpp/test/test_helper.hrl").
 
 -export([server/0,
          create_user/1,
          make_cfg/1,
+         connect/1,
          rest/0,
          rest/1,
          load_hs/2,
@@ -13,6 +15,8 @@
          load_items/2,
          time/2
         ]).
+
+-type config() :: proplists:proplist().
 
 server() ->
     list_to_binary(os:getenv("WOCKY_SERVER", "localhost")).
@@ -27,7 +31,7 @@ create_user(ID) ->
 handle(ID) ->
     <<"User", (integer_to_binary(ID))/binary>>.
 
--spec make_cfg(?wocky_user:t()) -> proplists:proplist().
+-spec make_cfg(?wocky_user:t()) -> config().
 make_cfg(#{id := ID}) ->
     Port = list_to_integer(os:getenv("WOCKY_PORT", "5223")),
     SSL = os:getenv("WOCKY_SSL", "true") =:= "true",
@@ -42,6 +46,12 @@ make_cfg(#{id := ID}) ->
      {stream_management, true},
      {resource, ?wocky_id:new()}
     ].
+
+-spec connect(config()) -> ejabberd:client().
+connect(Config) ->
+    {ok, Conn, Props, _} = escalus_connection:start(Cfg),
+    Jid = make_jid(Props),
+    Conn#client{jid = Jid}.
 
 rest() -> rest(2).
 rest(Seconds) ->
