@@ -64,7 +64,6 @@ init() ->
 -spec start(amoc_scenario:user_id()) -> any().
 start(MyID) ->
     try
-        load_util:rest(10),
         lager:info("Starting browsing test"),
         User = ?load_helper:get_user(MyID),
         Cfg = load_util:make_cfg(User),
@@ -86,12 +85,10 @@ start(MyID) ->
         time(wocky_browsing_hs_load_time,
              fun() -> load_util:load_hs(Client, 50) end),
 
-        load_util:rest(),
         [Bot | _Bots] =
             time(wocky_browsing_sub_bot_time,
                  fun() -> load_util:load_subscribed_bots(Client) end),
 
-        load_util:rest(),
         lager:info("Loading bot and items"),
         time(wocky_browsing_bot_time,
              fun() -> load_util:load_bot(Client, Bot) end),
@@ -100,7 +97,6 @@ start(MyID) ->
         time(wocky_browsing_bot_items_time,
              fun() -> load_util:load_items(Client, Bot) end),
         lager:info("Items loaded"),
-        load_util:rest(),
 
         lager:info("Sending unavailable"),
         send_presence_unavailable(Client),
