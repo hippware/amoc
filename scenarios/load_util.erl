@@ -13,7 +13,8 @@
          load_subscribed_bots/1,
          load_bot/2,
          load_items/2,
-         time/2
+         time/2,
+         do_geosearch/2
         ]).
 
 -type config() :: proplists:proplist().
@@ -49,7 +50,7 @@ make_cfg(#{id := ID}) ->
 
 -spec connect(config()) -> ejabberd:client().
 connect(Config) ->
-    {ok, Conn, Props, _} = escalus_connection:start(Cfg),
+    {ok, Conn, Props, _} = escalus_connection:start(Config),
     Jid = make_jid(Props),
     Conn#client{jid = Jid}.
 
@@ -84,3 +85,21 @@ time(Metric, Fun) ->
     {Time, Result} = timer:tc(Fun),
     amoc_metrics:update_hist(Metric, Time),
     Result.
+
+make_jid(Proplist) ->
+    {username, U} = lists:keyfind(username, 1, Proplist),
+    {server, S} = lists:keyfind(server, 1, Proplist),
+    {resource, R} = lists:keyfind(resource, 1, Proplist),
+    <<U/binary, "@", S/binary, "/", R/binary>>.
+
+do_geosearch(Client, {Lat, Lon}) ->
+    QueryEl =
+    #xmlel{name = <<"bots">>,
+           children = [#xmlel{name = <<"explore-nearby">>,
+                              attrs = [{<<"limit">>, integer_to_binary(10000)},
+                                       {<<"radius">>, float_to_binary(10000.0)},
+                                       {<<"lat">>, float_to_binary(Lat)},
+                                       {<<"lon">>, float_to_binary(Lon)}]}]},
+    Stanza = test_helper:iq_get(?NS_BOT, QueryEl),
+
+    test_helper:expect_iq_success(test_helper:add_to_s(Stanza, Client), Client).

@@ -1,4 +1,4 @@
--module(wocky_browsing).
+-module(wocky_geosearch).
 
 -include("../deps/wocky_app/apps/wocky_xmpp/include/wocky.hrl").
 -include("../deps/wocky_app/apps/wocky_xmpp/test/test_helper.hrl").
@@ -10,9 +10,9 @@
 
 -define(HOST, load_util:server()).
 -define(CREATOR_BOTS, 1000).
--define(USERS, 1000).
 
 -define(load_helper, 'Elixir.AMOC.LoadHelper').
+-define(wocky_geoutils, 'Elixir.Wocky.GeoUtils').
 -define(enum, 'Elixir.Enum').
 
 -define(DB_OPTS, [{timeout, infinity}, {pool_timeout, infinity}]).
@@ -29,9 +29,10 @@ setup_db(Count) ->
     ?wocky_repo:transaction( fun() ->
                                      lists:foreach(
                                        fun(I) ->
-                                               setup_creator(I)
+                                               setup_creator(I),
+                                               io:fwrite("~p,", [I])
                                        end,
-                                       lists:seq(1, ?USERS)),
+                                       lists:seq(1, Count))
                              end, ?DB_OPTS),
 
     lager:info("Done").
@@ -41,10 +42,12 @@ setup_db(Count) ->
 init() ->
     amoc_metrics:new_counter(wocky_geosearch_runs),
     amoc_metrics:new_counter(wocky_geosearch_errors),
+    amoc_metrics:new_counter(wocky_geosearch_no_more_bots),
+    amoc_metrics:new_counter(wocky_geosearch_bot_limit_reached),
 
     Histograms  =
         [wocky_geosearch_first_bot_time, wocky_geosearch_bot_interval,
-         wocky_geosearch_total_bots, wocky_geosearch_total_time].
+         wocky_geosearch_total_bots, wocky_geosearch_total_time],
 
     lists:foreach(amoc_metrics:new_histogram(_), Histograms),
     ok.
@@ -55,12 +58,10 @@ start(MyID) ->
         lager:info("Starting browsing test"),
         User = ?load_helper:get_user(MyID),
         Cfg = load_util:make_cfg(User),
-        load_util:connect(Cfg),
+        Client = load_util:connect(Cfg),
 
-        time(wocky_browsing_presence_time,
-             fun() ->
-                     send_presence_available(Client),
-             end),
+        send_presence_available(Client),
+        escalus_client:wait_for_stanza(Client),
 
         run_test(Client)
     catch
@@ -71,9 +72,19 @@ start(MyID) ->
     end.
 
 run_test(Client) ->
-    load_test:do_geosearch(Client),
-    get_geosearch_results(Client),
-    run_rest(Client).
+    time(wocky_geosearch_total_time,
+         fun() ->
+                 load_util:do_geosearch(Client, rand_point()),
+                 get_geosearch_results(Client, wocky_geosearch_first_bot)
+         end),
+    run_test(Client).
+
+get_geosearch_results(Client, Metric) ->
+    R = time(Metric, fun() -> get_geosearch_result(Client) end),
+    case R of
+        done -> ok;
+        more -> get_geosearch_results(Client, wocky_geosearch_bot_interval)
+    end.
 
 -spec send_presence_available(escalus:client()) -> ok.
 send_presence_available(Client) ->
@@ -86,20 +97,28 @@ setup_creator(ID) ->
     User.
 
 make_bot(User) ->
-    ?wocky_factory.insert(bot, [{user, User},
+    {Lat, Lon} = rand_point(),
+    ?wocky_factory:insert(bot, [{user, User},
                                 {location, ?wocky_geoutils:point(Lat, Lon)},
-                                {public, :rand.uniform(2) =:= 2}]).
+                                {public, rand:uniform(2) =:= 2}]).
 
 rand_point() ->
-    {HLat, HLon} = ?enum.random(?HOTSPOTS),
-    [Lat, Lon] = [offset(C) || C <- HLat, HLon].
+    {Lat, Lon} = ?enum:random(?HOTSPOTS),
+    {offset(Lat), offset(Lon)}.
 
 offset(Val) ->
-    rand:uniform() * (?MAX_OFFSET * 2.0) - ?MAX_OFFSET.
+    Val + (rand:uniform() * (?MAX_OFFSET * 2.0) - ?MAX_OFFSET).
 
-make_jid(Proplist) ->
-    {username, U} = lists:keyfind(username, 1, Proplist),
-    {server, S} = lists:keyfind(server, 1, Proplist),
-    {resource, R} = lists:keyfind(resource, 1, Proplist),
-    <<U/binary, "@", S/binary, "/", R/binary>>.
+get_geosearch_result(Client) ->
+    Stanza = escalus_client:wait_for_stanza(Client),
+    El = xml:get_path_s(Stanza, [{elem, <<"explore-nearby-result">>}]),
+    case (hd(El#xmlel.children))#xmlel.name of
+        <<"bot">> -> more;
+        <<"no-more-bots">> ->
+            amoc_metrics:update_counter(wocky_geosearch_no_more_bots, 1),
+            done;
+        <<"bot-limit-reached">> ->
+            amoc_metrics:update_counter(wocky_geosearch_bot_limit_reached, 1),
+            done
+    end.
 
