@@ -100,7 +100,9 @@ make_bot(User) ->
     {Lat, Lon} = rand_point(),
     ?wocky_factory:insert(bot, [{user, User},
                                 {location, ?wocky_geoutils:point(Lat, Lon)},
-                                {public, rand:uniform(2) =:= 2}]).
+                                {public, rand:uniform(2) =:= 2},
+                                {shortname, <<(?wocky_id:new())/binary>>}
+                               ]).
 
 rand_point() ->
     {Lat, Lon} = ?enum:random(?HOTSPOTS),
