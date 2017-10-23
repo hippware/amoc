@@ -60,9 +60,11 @@ start(MyID) ->
         Cfg = load_util:make_cfg(User),
         Client = load_util:connect(Cfg),
 
+        lager:info("Connected"),
         send_presence_available(Client),
         escalus_client:wait_for_stanza(Client),
 
+        lager:info("Presence sent"),
         run_test(Client)
     catch
         A:B ->
@@ -74,17 +76,25 @@ start(MyID) ->
 run_test(Client) ->
     time(wocky_geosearch_total_time,
          fun() ->
+                 lager:info("Starting test"),
                  load_util:do_geosearch(Client, rand_point()),
-                 get_geosearch_results(Client, wocky_geosearch_first_bot)
+                 C = get_geosearch_results(
+                       Client, wocky_geosearch_first_bot_time, 0),
+                 amoc_metrics:update_hist(wocky_geosearch_total_bots, C)
          end),
+    amoc_metrics:update_counter(wocky_geosearch_runs, 1),
     run_test(Client).
 
-get_geosearch_results(Client, Metric) ->
-    amoc_metrics:update_counter(wocky_geosearch_runs, 1),
+get_geosearch_results(Client, Metric, Count) ->
+    lager:info("Getting results"),
     R = time(Metric, fun() -> get_geosearch_result(Client) end),
     case R of
-        done -> ok;
-        more -> get_geosearch_results(Client, wocky_geosearch_bot_interval)
+        done ->
+            lager:info("Finished getting results"),
+            Count;
+        more ->
+            lager:info("Getting more results"),
+            get_geosearch_results(Client, wocky_geosearch_bot_interval, Count + 1)
     end.
 
 -spec send_presence_available(escalus:client()) -> ok.
@@ -116,7 +126,8 @@ get_geosearch_result(Client) ->
     Stanza = escalus_client:wait_for_stanza(Client),
     El = xml:get_path_s(Stanza, [{elem, <<"explore-nearby-result">>}]),
     case (hd(El#xmlel.children))#xmlel.name of
-        <<"bot">> -> more;
+        <<"bot">> ->
+            more;
         <<"no-more-bots">> ->
             amoc_metrics:update_counter(wocky_geosearch_no_more_bots, 1),
             done;
