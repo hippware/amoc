@@ -68,7 +68,7 @@ start(MyID) ->
         A:B ->
             lager:info("Scenario failed with: ~p:~p - ~p",
                        [A, B, erlang:get_stacktrace()]),
-            amoc_metrics:update_counter(wocky_browsing_errors, 1)
+            amoc_metrics:update_counter(wocky_geosearch_errors, 1)
     end.
 
 run_test(Client) ->
@@ -80,6 +80,7 @@ run_test(Client) ->
     run_test(Client).
 
 get_geosearch_results(Client, Metric) ->
+    amoc_metrics:update_counter(wocky_geosearch_runs, 1),
     R = time(Metric, fun() -> get_geosearch_result(Client) end),
     case R of
         done -> ok;
