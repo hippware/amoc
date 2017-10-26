@@ -14,7 +14,8 @@
          load_bot/2,
          load_items/2,
          time/2,
-         do_geosearch/2
+         do_geosearch/2,
+         do_initial_presence/1
         ]).
 
 -type config() :: proplists:proplist().
@@ -96,10 +97,35 @@ do_geosearch(Client, {Lat, Lon}) ->
     QueryEl =
     #xmlel{name = <<"bots">>,
            children = [#xmlel{name = <<"explore-nearby">>,
-                              attrs = [{<<"limit">>, integer_to_binary(10000)},
+                              attrs = [{<<"limit">>, integer_to_binary(200)},
                                        {<<"radius">>, float_to_binary(10000.0)},
                                        {<<"lat">>, float_to_binary(Lat)},
                                        {<<"lon">>, float_to_binary(Lon)}]}]},
     Stanza = test_helper:iq_get(?NS_BOT, QueryEl),
+    escalus:send(Client, test_helper:add_to_s(Stanza, Client)),
+    await_result(Client).
 
-    test_helper:expect_iq_success(test_helper:add_to_s(Stanza, Client), Client).
+await_result(Client) ->
+    Result = escalus:wait_for_stanza(Client, 60000),
+    case escalus_pred:is_iq_result(Result) of
+        true -> Result;
+        false ->
+            io:fwrite("Awaiting result but got. ~p", [Result]),
+            await_result(Client)
+    end.
+
+do_initial_presence(Client) ->
+    send_presence_available(Client),
+    wait_presence_result(Client).
+
+wait_presence_result(Client) ->
+    S = escalus_client:wait_for_stanza(Client, 60000),
+    case escalus_pred:is_presence(S) of
+        true -> ok;
+        false -> wait_presence_result(Client)
+    end.
+
+-spec send_presence_available(escalus:client()) -> ok.
+send_presence_available(Client) ->
+    Pres = escalus_stanza:presence(<<"available">>),
+    escalus_connection:send(Client, Pres).

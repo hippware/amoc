@@ -40,14 +40,21 @@ setup_db(Count) ->
 
 -spec init() -> ok.
 init() ->
-    amoc_metrics:new_counter(wocky_geosearch_runs),
-    amoc_metrics:new_counter(wocky_geosearch_errors),
-    amoc_metrics:new_counter(wocky_geosearch_no_more_bots),
-    amoc_metrics:new_counter(wocky_geosearch_bot_limit_reached),
+    Counters =
+        [wocky_geosearch_runs,
+         wocky_geosearch_errors,
+         wocky_geosearch_no_more_bots,
+         wocky_geosearch_bot_limit_reached,
+         wocky_geosearch_time_limit_reached
+        ],
+
+    lists:foreach(amoc_metrics:new_counter(_), Counters),
 
     Histograms  =
         [wocky_geosearch_first_bot_time, wocky_geosearch_bot_interval,
-         wocky_geosearch_total_bots, wocky_geosearch_total_time],
+         wocky_geosearch_total_bots, wocky_geosearch_total_time,
+         wocky_geosearch_iq_response_time
+        ],
 
     lists:foreach(amoc_metrics:new_histogram(_), Histograms),
     ok.
@@ -60,9 +67,9 @@ start(MyID) ->
         Cfg = load_util:make_cfg(User),
         Client = load_util:connect(Cfg),
 
+
         lager:info("Connected"),
-        send_presence_available(Client),
-        escalus_client:wait_for_stanza(Client),
+        load_util:do_initial_presence(Client),
 
         lager:info("Presence sent"),
         run_test(Client)
@@ -77,7 +84,8 @@ run_test(Client) ->
     time(wocky_geosearch_total_time,
          fun() ->
                  lager:info("Starting test"),
-                 load_util:do_geosearch(Client, rand_point()),
+                 time(wocky_geosearch_iq_response_time,
+                      fun() -> load_util:do_geosearch(Client, rand_point()) end),
                  C = get_geosearch_results(
                        Client, wocky_geosearch_first_bot_time, 0),
                  amoc_metrics:update_hist(wocky_geosearch_total_bots, C)
@@ -90,17 +98,10 @@ get_geosearch_results(Client, Metric, Count) ->
     R = time(Metric, fun() -> get_geosearch_result(Client) end),
     case R of
         done ->
-            lager:info("Finished getting results"),
             Count;
         more ->
-            lager:info("Getting more results"),
             get_geosearch_results(Client, wocky_geosearch_bot_interval, Count + 1)
     end.
-
--spec send_presence_available(escalus:client()) -> ok.
-send_presence_available(Client) ->
-    Pres = escalus_stanza:presence(<<"available">>),
-    escalus_connection:send(Client, Pres).
 
 setup_creator(ID) ->
     User = load_util:create_user(ID),
@@ -123,16 +124,23 @@ offset(Val) ->
     Val + (rand:uniform() * (?MAX_OFFSET * 2.0) - ?MAX_OFFSET).
 
 get_geosearch_result(Client) ->
-    Stanza = escalus_client:wait_for_stanza(Client),
-    El = xml:get_path_s(Stanza, [{elem, <<"explore-nearby-result">>}]),
-    case (hd(El#xmlel.children))#xmlel.name of
-        <<"bot">> ->
-            more;
-        <<"no-more-bots">> ->
-            amoc_metrics:update_counter(wocky_geosearch_no_more_bots, 1),
-            done;
-        <<"bot-limit-reached">> ->
-            amoc_metrics:update_counter(wocky_geosearch_bot_limit_reached, 1),
-            done
+    Stanza = escalus_client:wait_for_stanza(Client, 60000),
+    case xml:get_path_s(Stanza, [{elem, <<"explore-nearby-result">>}]) of
+        #xmlel{children = Children} ->
+            case (hd(Children))#xmlel.name of
+                <<"bot">> ->
+                    more;
+                <<"no-more-bots">> ->
+                    amoc_metrics:update_counter(wocky_geosearch_no_more_bots, 1),
+                    done;
+                <<"bot-limit-reached">> ->
+                    amoc_metrics:update_counter(wocky_geosearch_bot_limit_reached, 1),
+                    done;
+                <<"search-time-limit-reached">> ->
+                    amoc_metrics:update_counter(wocky_geosearch_time_limit_reached, 1),
+                    done
+            end;
+        _ ->
+            % Some other packet we don't care about
+            get_geosearch_result(Client)
     end.
-
